@@ -1,0 +1,29 @@
+{
+  "name": "pallas-mcp",
+  "version": "0.1.0",
+  "description": "MCP server bridging AI agents to Figma and Panda CSS for two-way design system sync",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "inspector": "npx @modelcontextprotocol/inspector dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
