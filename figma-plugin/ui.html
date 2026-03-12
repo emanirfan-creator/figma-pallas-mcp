@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pallas MCP Bridge</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 12px;
@@ -14,6 +20,7 @@
       padding: 16px;
       min-height: 180px;
     }
+
     h1 {
       font-size: 13px;
       font-weight: 600;
@@ -21,28 +28,42 @@
       color: #cba6f7;
       letter-spacing: 0.04em;
     }
+
     .status-row {
       display: flex;
       align-items: center;
       gap: 8px;
       margin-bottom: 8px;
     }
+
     .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #a6e3a1; /* green = connected */
+      background: #a6e3a1;
+      /* green = connected */
       flex-shrink: 0;
       transition: background 0.3s;
     }
-    .dot.disconnected { background: #f38ba8; }
-    .dot.running { background: #fab387; }
-    #status-label { font-weight: 500; }
+
+    .dot.disconnected {
+      background: #f38ba8;
+    }
+
+    .dot.running {
+      background: #fab387;
+    }
+
+    #status-label {
+      font-weight: 500;
+    }
+
     .meta {
       font-size: 10px;
       color: #6c7086;
       line-height: 1.6;
     }
+
     #last-action {
       margin-top: 10px;
       background: #313244;
@@ -56,14 +77,18 @@
     }
   </style>
 </head>
+
 <body>
   <h1>🔗 Pallas MCP Bridge</h1>
   <div class="status-row">
     <div class="dot" id="dot"></div>
     <span id="status-label">Waiting for connection…</span>
   </div>
-  <div class="meta">
-    Port: <strong>3055</strong> &nbsp;|&nbsp; Queue: <span id="queue-depth">0</span>
+  <div class="meta" style="margin-top: 10px; display: flex; gap: 4px;">
+    <input type="text" id="ws-url" value="ws://localhost:3055"
+      style="background: #313244; color: #fff; border: 1px solid #45475a; padding: 4px; border-radius: 4px; width: 100%; font-size: 10px; font-family: monospace;" />
+    <button id="btn-connect"
+      style="background: #cba6f7; border: none; padding: 0 8px; border-radius: 4px; color: #1e1e2e; font-weight: bold; cursor: pointer; font-size: 10px;">Connect</button>
   </div>
   <div id="last-action">(no action yet)</div>
 
@@ -72,6 +97,12 @@
     const statusLabel = document.getElementById("status-label");
     const queueDepth = document.getElementById("queue-depth");
     const lastAction = document.getElementById("last-action");
+    const wsUrlInput = document.getElementById("ws-url");
+    const btnConnect = document.getElementById("btn-connect");
+
+    // Load saved URL
+    const savedUrl = localStorage.getItem("pallasWsUrl");
+    if (savedUrl) wsUrlInput.value = savedUrl;
 
     // ── WebSocket server (ui.html runs in an iframe with network access) ──
     let ws = null;
@@ -82,14 +113,32 @@
       dot.className = "dot " + s;
       statusLabel.textContent =
         s === "connected" ? "Connected" :
-        s === "running" ? "Running…" :
-        "Disconnected — retrying…";
+          s === "running" ? "Running…" :
+            "Disconnected — retrying…";
       queueDepth.textContent = String(q);
       if (action) lastAction.textContent = action;
     }
 
     function connectWS() {
-      const server = new WebSocket("ws://localhost:3055");
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+
+      const url = wsUrlInput.value.trim() || "ws://localhost:3055";
+      localStorage.setItem("pallasWsUrl", url);
+
+      let server;
+      try {
+        server = new WebSocket(url);
+      } catch (err) {
+        setStatus("disconnected");
+        return;
+      }
 
       server.addEventListener("open", () => {
         ws = server;
@@ -107,7 +156,7 @@
           // Forward to plugin sandbox
           parent.postMessage({ pluginMessage: { type: "ws_message", ...data } }, "*");
           setStatus("running", 0, data.action ?? "unknown");
-        } catch {}
+        } catch { }
       });
 
       server.addEventListener("close", () => {
@@ -146,13 +195,17 @@
       setStatus(msg.status, msg.queueDepth, msg.lastAction);
     });
 
+    // Listen for manual connect clicks
+    btnConnect.addEventListener("click", () => {
+      connectWS();
+    });
+
     // Note: ui.html cannot directly open a WebSocket server.
-    // The MCP server connects TO this plugin.
-    // In production Figma plugins, the UI acts as the network relay
-    // because code.js (the sandbox) has no network access.
-    // The WebSocket server lives in the MCP Node.js process; 
-    // this plugin connects as a CLIENT to that server.
+    // The MCP server connects TO this plugin if using a Relay.
+    // If local, the MCP Node process hosts the Server and this plugin
+    // connects TO the MCP node process on localhost.
     connectWS();
   </script>
 </body>
+
 </html>

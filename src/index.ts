@@ -23,6 +23,10 @@ import {
     bindAllVariantTokens,
     verifyComponentBindings,
 } from "./figma/tokens.js";
+import { getSelection } from "./figma/selection.js";
+import { lintNode } from "./figma/linting.js";
+import { readComments, writeComment, resolveComment } from "./figma/comments.js";
+import { getVersions, getBranches, createBranch } from "./figma/versions.js";
 
 // Panda modules
 import { readTokens, writeToken } from "./panda/tokens.js";
@@ -198,6 +202,139 @@ server.tool(
         const report = await verifyComponentBindings(componentSetId);
         return {
             content: [{ type: "text", text: JSON.stringify(report, null, 2) }],
+        };
+    }
+);
+
+// ---------------------------------------------------------------------------
+// ── CONTEXT & SELECTION TOOLS ──────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+
+server.tool(
+    "figma_get_selection",
+    "Returns the current selection in the open Figma file",
+    {},
+    async () => {
+        const selection = await getSelection();
+        return {
+            content: [{ type: "text", text: JSON.stringify(selection, null, 2) }],
+        };
+    }
+);
+
+// ---------------------------------------------------------------------------
+// ── LINTING TOOLS ──────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+
+server.tool(
+    "figma_lint_node",
+    "Runs design linter on specific nodes or the current selection. Checks WCAG contrast, missing auto-layout, and hardcoded colors.",
+    {
+        nodeId: z.string().optional().describe("Node ID to lint. Omit to lint current selection."),
+        rules: z.array(
+            z.enum(["wcag", "no-autolayout", "hardcoded-color", "all"])
+        ).default(["all"]),
+    },
+    async ({ nodeId, rules }) => {
+        const results = await lintNode({ nodeId, rules });
+        return {
+            content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+        };
+    }
+);
+
+// ---------------------------------------------------------------------------
+// ── COMMENTS TOOLS ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+
+server.tool(
+    "figma_read_comments",
+    "Reads all comments from a Figma file",
+    {
+        fileKey: z.string().describe("Figma file key"),
+    },
+    async ({ fileKey }) => {
+        const comments = await readComments(fileKey);
+        return {
+            content: [{ type: "text", text: JSON.stringify(comments, null, 2) }],
+        };
+    }
+);
+
+server.tool(
+    "figma_write_comment",
+    "Posts a new comment to a Figma file, optionally attaching to a specific node",
+    {
+        fileKey: z.string().describe("Figma file key"),
+        message: z.string().describe("Comment text"),
+        nodeId: z.string().optional().describe("Optional node ID to attach comment to"),
+    },
+    async ({ fileKey, message, nodeId }) => {
+        const comment = await writeComment(fileKey, message, nodeId);
+        return {
+            content: [{ type: "text", text: JSON.stringify(comment, null, 2) }],
+        };
+    }
+);
+
+server.tool(
+    "figma_resolve_comment",
+    "Resolves/deletes a comment in a Figma file",
+    {
+        fileKey: z.string().describe("Figma file key"),
+        commentId: z.string().describe("Comment ID to resolve"),
+    },
+    async ({ fileKey, commentId }) => {
+        await resolveComment(fileKey, commentId);
+        return {
+            content: [{ type: "text", text: "Comment resolved successfully" }],
+        };
+    }
+);
+
+// ---------------------------------------------------------------------------
+// ── VERSION HISTORY TOOLS ──────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+
+server.tool(
+    "figma_get_versions",
+    "Gets the version history of a Figma file",
+    {
+        fileKey: z.string().describe("Figma file key"),
+    },
+    async ({ fileKey }) => {
+        const versions = await getVersions(fileKey);
+        return {
+            content: [{ type: "text", text: JSON.stringify(versions, null, 2) }],
+        };
+    }
+);
+
+server.tool(
+    "figma_get_branches",
+    "List all branches of a Figma file (requires Enterprise plan)",
+    {
+        fileKey: z.string().describe("Figma file key"),
+    },
+    async ({ fileKey }) => {
+        const branches = await getBranches(fileKey);
+        return {
+            content: [{ type: "text", text: JSON.stringify(branches, null, 2) }],
+        };
+    }
+);
+
+server.tool(
+    "figma_create_branch",
+    "Creates a new branch from a main Figma file (requires Enterprise plan)",
+    {
+        fileKey: z.string().describe("Figma file key"),
+        name: z.string().describe("Name of the new branch"),
+    },
+    async ({ fileKey, name }) => {
+        const branch = await createBranch(fileKey, name);
+        return {
+            content: [{ type: "text", text: JSON.stringify(branch, null, 2) }],
         };
     }
 );
@@ -399,6 +536,40 @@ server.tool(
         const component = await readComponent(fileKey, nodeId);
         return {
             content: [{ type: "text", text: JSON.stringify(component, null, 2) }],
+        };
+    }
+);
+
+// ---------------------------------------------------------------------------
+// ── EXPORT TOOLS ───────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+
+server.tool(
+    "figma_export_node",
+    "Exports a node (frame, component, etc.) to an image URL",
+    {
+        fileKey: z.string(),
+        nodeId: z.string(),
+        format: z.enum(["png", "svg", "jpg", "pdf"]).optional().default("png"),
+        scale: z.number().optional().default(1),
+    },
+    async ({ fileKey, nodeId, format, scale }) => {
+        const client = await import("./figma/client.js").then(m => m.getRestClient());
+        const response = await client.getImage(fileKey, nodeId, format, scale);
+
+        let url = response.images[nodeId];
+        // Handle node ID format variations in the images response (sometimes they use ':' vs '-')
+        if (!url) {
+            const normalizedId = nodeId.replace(/:/g, "-");
+            url = response.images[normalizedId];
+        }
+
+        if (!url) {
+            throw new Error(`Export failed: ${response.err || "Unknown error"}`);
+        }
+
+        return {
+            content: [{ type: "text", text: JSON.stringify({ url }, null, 2) }],
         };
     }
 );

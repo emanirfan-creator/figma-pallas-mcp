@@ -85,6 +85,10 @@ async function dispatch(action, payload) {
             return setFills(payload);
         case "setStrokes":
             return setStrokes(payload);
+        case "getSelection":
+            return getSelection();
+        case "lintNode":
+            return lintNode(payload);
 
         default:
             throw new Error(`Unknown action: ${action}`);
@@ -574,6 +578,138 @@ function setStrokes({ nodeId, strokes }) {
     if (!("strokes" in node)) throw new Error(`Node does not support strokes`);
     node.strokes = strokes;
     return { nodeId };
+}
+
+function getSelection() {
+    const selection = figma.currentPage.selection;
+    return selection.map(node => ({
+        id: node.id,
+        name: node.name,
+        type: node.type
+    }));
+}
+
+// ── Linting ──────────────────────────────────────────────────────────────────
+
+function luminance({ r, g, b }) {
+    const a = [r, g, b].map((v) => {
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+}
+
+function contrast(rgb1, rgb2) {
+    const lum1 = luminance(rgb1);
+    const lum2 = luminance(rgb2);
+    const brightest = Math.max(lum1, lum2);
+    const darkest = Math.min(lum1, lum2);
+    return (brightest + 0.05) / (darkest + 0.05);
+}
+
+function getEffectiveBackgroundColor(node) {
+    // Traverse upwards to find the first solid fill acting as background
+    let current = node.parent;
+    while (current) {
+        if ("fills" in current && Array.isArray(current.fills)) {
+            const solidFill = current.fills.find(f => f.type === "SOLID" && f.visible !== false);
+            if (solidFill) return solidFill.color;
+        }
+        current = current.parent;
+    }
+    return { r: 1, g: 1, b: 1 }; // Default to white canvas
+}
+
+async function lintNode({ nodeId, rules }) {
+    const results = [];
+    let targetNodes = [];
+
+    if (nodeId) {
+        const node = figma.getNodeById(nodeId);
+        if (node) targetNodes = [node];
+    } else {
+        targetNodes = Array.from(figma.currentPage.selection);
+    }
+
+    if (targetNodes.length === 0) return results;
+
+    const runWcag = rules.includes("wcag") || rules.includes("all");
+    const runLayout = rules.includes("no-autolayout") || rules.includes("all");
+    const runColors = rules.includes("hardcoded-color") || rules.includes("all");
+
+    function walk(node) {
+        // WCAG Contrast Check
+        if (runWcag && node.type === "TEXT") {
+            const fills = node.fills;
+            if (Array.isArray(fills) && fills.length > 0) {
+                const solidFill = fills.find(f => f.type === "SOLID" && f.visible !== false);
+                if (solidFill) {
+                    const bg = getEffectiveBackgroundColor(node);
+                    const ratio = contrast(solidFill.color, bg);
+                    const isLargeText = node.fontSize >= 18 || (node.fontSize >= 14 && node.fontWeight > 600);
+                    const requiredTarget = isLargeText ? 3.0 : 4.5;
+
+                    if (ratio < requiredTarget) {
+                        results.push({
+                            ruleId: "wcag-contrast",
+                            message: `Contrast ratio ${ratio.toFixed(2)}:1 is below the WCAG AA requirement of ${requiredTarget}:1 for ${isLargeText ? "large" : "normal"} text (Foreground: rgb(${Math.round(solidFill.color.r * 255)},${Math.round(solidFill.color.g * 255)},${Math.round(solidFill.color.b * 255)}), Background: rgb(${Math.round(bg.r * 255)},${Math.round(bg.g * 255)},${Math.round(bg.b * 255)}))`,
+                            nodeId: node.id,
+                            nodeName: node.name,
+                            severity: "error"
+                        });
+                    }
+                }
+            }
+        }
+
+        // Auto Layout Check
+        if (runLayout && (node.type === "FRAME" || node.type === "COMPONENT")) {
+            if (node.layoutMode === "NONE" && node.children.length > 1) {
+                results.push({
+                    ruleId: "no-autolayout",
+                    message: `Frame contains multiple children but doesn't use auto-layout.`,
+                    nodeId: node.id,
+                    nodeName: node.name,
+                    severity: "warning"
+                });
+            }
+        }
+
+        // Hardcoded Colors Check
+        if (runColors && "fills" in node && Array.isArray(node.fills)) {
+            const hasRawFill = node.fills.some(f => f.type === "SOLID" && (!node.boundVariables || !node.boundVariables.fills));
+            if (hasRawFill) {
+                results.push({
+                    ruleId: "hardcoded-color",
+                    message: `Layer uses a raw fill color instead of a variable binding.`,
+                    nodeId: node.id,
+                    nodeName: node.name,
+                    severity: "warning"
+                });
+            }
+        }
+
+        // Hardcoded Strokes Check
+        if (runColors && "strokes" in node && Array.isArray(node.strokes)) {
+            const hasRawStroke = node.strokes.some(s => s.type === "SOLID" && (!node.boundVariables || !node.boundVariables.strokes));
+            if (hasRawStroke) {
+                results.push({
+                    ruleId: "hardcoded-color",
+                    message: `Layer uses a raw stroke color instead of a variable binding.`,
+                    nodeId: node.id,
+                    nodeName: node.name,
+                    severity: "warning"
+                });
+            }
+        }
+
+        if ("children" in node) {
+            for (const child of node.children) walk(child);
+        }
+    }
+
+    for (const node of targetNodes) walk(node);
+
+    return results;
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────

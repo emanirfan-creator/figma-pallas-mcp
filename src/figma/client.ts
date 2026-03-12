@@ -38,10 +38,16 @@ export class FigmaRestClient {
         this.token = t;
     }
 
-    private async request<T>(path: string): Promise<T> {
+    async request<T>(path: string, options?: Omit<RequestInit, "body"> & { body?: string }): Promise<T> {
         const url = `${this.baseUrl}${path}`;
         const res = await fetch(url, {
-            headers: { "X-Figma-Token": this.token },
+            ...options,
+            body: options?.body, // Pass body explicitly since it's restricted to string
+            headers: {
+                "X-Figma-Token": this.token,
+                ...(options?.body ? { "Content-Type": "application/json" } : {}),
+                ...options?.headers
+            },
         });
         if (!res.ok) {
             const body = await res.text();
@@ -67,16 +73,24 @@ export class FigmaRestClient {
         return this.request<FigmaFileResponse>(`/files/${fileKey}`);
     }
 
+    async getImage(fileKey: string, nodeId: string, format: "svg" | "png" | "jpg" | "pdf" = "png", scale: number = 1) {
+        const query = `ids=${encodeURIComponent(nodeId)}&format=${format}&scale=${scale}`;
+        return this.request<FigmaImageResponse>(`/images/${fileKey}?${query}`);
+    }
+
     async getComponents(fileKey: string) {
         return this.request<unknown>(`/files/${fileKey}/components`);
     }
 }
 
 // ---------------------------------------------------------------------------
-// Figma Plugin WebSocket Client
+// Figma Plugin WebSocket Client/Server
 // ---------------------------------------------------------------------------
 
-const WS_URL = `ws://localhost:${process.env["FIGMA_PLUGIN_PORT"] ?? "3055"}`;
+import { WebSocketServer } from "ws";
+
+const LOCAL_PORT = parseInt(process.env["FIGMA_PLUGIN_PORT"] ?? "3055", 10);
+const RELAY_URL = process.env["FIGMA_RELAY_URL"]; // e.g. wss://pallas-relay.example.com?channel=xyz
 const MAX_QUEUE = 200;
 const RECONNECT_DELAY_MS = 2000;
 const ACK_TIMEOUT_MS = 30_000;
@@ -88,6 +102,7 @@ interface QueuedMessage {
 }
 
 export class FigmaPluginClient {
+    private wss: WebSocketServer | null = null;
     private ws: WebSocket | null = null;
     private queue: QueuedMessage[] = [];
     private pendingMap = new Map<
@@ -99,12 +114,48 @@ export class FigmaPluginClient {
     private closed = false;
 
     constructor() {
-        this.connect();
+        this.initConnection();
     }
 
-    private connect() {
+    private initConnection() {
         if (this.closed) return;
-        const ws = new WebSocket(WS_URL);
+
+        if (RELAY_URL) {
+            // Act as a client to a remote relay
+            this.connectToRelay();
+        } else {
+            // Host locally
+            this.startLocalServer();
+        }
+    }
+
+    private startLocalServer() {
+        this.wss = new WebSocketServer({ port: LOCAL_PORT });
+
+        this.wss.on("connection", (socket) => {
+            // Disconnect old socket if a new one connects (e.g. plugin reloaded)
+            if (this.ws) {
+                this.ws.terminate();
+            }
+            this.ws = socket;
+            this.setupSocket(socket);
+            this.flushQueue();
+        });
+
+        this.wss.on("error", (err) => {
+            console.error("Local WebSocket Server Error:", err);
+            setTimeout(() => {
+                if (!this.closed) {
+                    this.wss?.close();
+                    this.startLocalServer();
+                }
+            }, RECONNECT_DELAY_MS);
+        });
+    }
+
+    private connectToRelay() {
+        if (this.closed) return;
+        const ws = new WebSocket(RELAY_URL!);
         this.ws = ws;
 
         ws.on("open", () => {
@@ -112,6 +163,13 @@ export class FigmaPluginClient {
             this.flushQueue();
         });
 
+        this.setupSocket(ws);
+
+        ws.on("close", () => this.scheduleReconnect());
+        ws.on("error", () => ws.terminate());
+    }
+
+    private setupSocket(ws: WebSocket) {
         ws.on("message", (raw) => {
             try {
                 const data = JSON.parse(String(raw)) as {
@@ -133,15 +191,12 @@ export class FigmaPluginClient {
                 // ignore malformed messages
             }
         });
-
-        ws.on("close", () => this.scheduleReconnect());
-        ws.on("error", () => ws.terminate());
     }
 
     private scheduleReconnect() {
-        if (this.closed || this.reconnecting) return;
+        if (this.closed || this.reconnecting || !RELAY_URL) return;
         this.reconnecting = true;
-        setTimeout(() => this.connect(), RECONNECT_DELAY_MS);
+        setTimeout(() => this.initConnection(), RECONNECT_DELAY_MS);
     }
 
     private flushQueue() {
@@ -192,6 +247,7 @@ export class FigmaPluginClient {
     destroy() {
         this.closed = true;
         this.ws?.terminate();
+        this.wss?.close();
     }
 }
 
@@ -262,4 +318,9 @@ export interface FigmaFileResponse {
     document: unknown;
     components: Record<string, unknown>;
     styles: Record<string, unknown>;
+}
+
+export interface FigmaImageResponse {
+    err?: string;
+    images: Record<string, string>;
 }
