@@ -84,6 +84,9 @@
     <div class="dot" id="dot"></div>
     <span id="status-label">Waiting for connection…</span>
   </div>
+  <div class="meta" style="margin-top: 2px;">
+    Queue: <span id="queue-depth">0</span>
+  </div>
   <div class="meta" style="margin-top: 10px; display: flex; gap: 4px;">
     <input type="text" id="ws-url" value="ws://localhost:3055"
       style="background: #313244; color: #fff; border: 1px solid #45475a; padding: 4px; border-radius: 4px; width: 100%; font-size: 10px; font-family: monospace;" />
@@ -115,7 +118,7 @@
         s === "connected" ? "Connected" :
           s === "running" ? "Running…" :
             "Disconnected — retrying…";
-      queueDepth.textContent = String(q);
+      if (queueDepth) queueDepth.textContent = String(q);
       if (action) lastAction.textContent = action;
     }
 
