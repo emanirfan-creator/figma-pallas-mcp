@@ -101,7 +101,7 @@ function findOrCreateCollection(name) {
     const existing = figma.variables.getLocalVariableCollections().find(
         (c) => c.name === name
     );
-    return existing ?? figma.variables.createVariableCollection(name);
+    return existing ? existing : figma.variables.createVariableCollection(name);
 }
 
 function findOrCreateVariable(collection, fullPath, type) {
@@ -119,7 +119,7 @@ function modeIdByName(collection, modeName) {
     const mode = collection.modes.find(
         (m) => m.name.toLowerCase() === modeName.toLowerCase()
     );
-    return mode?.modeId ?? collection.defaultModeId;
+    return mode && mode.modeId ? mode.modeId : collection.defaultModeId;
 }
 
 // ── Action implementations ────────────────────────────────────────────────
@@ -128,7 +128,7 @@ function createVariable({ collection, group, name, type, value, mode }) {
     const col = findOrCreateCollection(collection);
     const fullPath = group ? `${group}/${name}` : name;
     const variable = findOrCreateVariable(col, fullPath, type);
-    const modeId = modeIdByName(col, mode ?? "default");
+    const modeId = modeIdByName(col, mode != null ? mode : "default");
 
     let figmaValue = value;
     if (type === "COLOR" && typeof value === "string") {
@@ -158,11 +158,15 @@ function createVariableAlias({
             (v) =>
                 v.variableCollectionId === semanticCol.id && v.name === semanticPath
         );
-    const semanticVar =
-        existing ??
-        figma.variables.createVariable(semanticPath, semanticCol, primitive.resolvedType);
+    const semanticVar = existing
+        ? existing
+        : figma.variables.createVariable(
+            semanticPath,
+            semanticCol,
+            primitive.resolvedType
+        );
 
-    const modeId = modeIdByName(semanticCol, mode ?? "default");
+    const modeId = modeIdByName(semanticCol, mode != null ? mode : "default");
     // Always use createVariableAlias — never set a raw value
     semanticVar.setValueForMode(modeId, figma.variables.createVariableAlias(primitive));
     return { id: semanticVar.id };

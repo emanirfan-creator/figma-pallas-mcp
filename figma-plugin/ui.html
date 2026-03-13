@@ -158,7 +158,7 @@
           const data = JSON.parse(evt.data);
           // Forward to plugin sandbox
           parent.postMessage({ pluginMessage: { type: "ws_message", ...data } }, "*");
-          setStatus("running", 0, data.action ?? "unknown");
+          setStatus("running", 0, data.action != null ? data.action : "unknown");
         } catch { }
       });
 
@@ -178,7 +178,7 @@
 
     // Listen for replies from the plugin code sandbox
     window.addEventListener("message", (evt) => {
-      const msg = evt.data?.pluginMessage;
+      const msg = evt.data && evt.data.pluginMessage;
       if (!msg || msg.type !== "ws_reply") return;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -193,7 +193,7 @@
 
     // Listen for status updates from the plugin code
     window.addEventListener("message", (evt) => {
-      const msg = evt.data?.pluginMessage;
+      const msg = evt.data && evt.data.pluginMessage;
       if (!msg || msg.type !== "status") return;
       setStatus(msg.status, msg.queueDepth, msg.lastAction);
     });
