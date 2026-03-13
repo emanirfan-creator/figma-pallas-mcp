@@ -130,8 +130,8 @@ export class FigmaPluginClient {
     }
 
     private startLocalServer() {
-        this.wss = new WebSocketServer({ port: LOCAL_PORT });
-
+        this.wss = new WebSocketServer({ port: LOCAL_PORT, host: "127.0.0.1" });
+        
         this.wss.on("connection", (socket) => {
             // Disconnect old socket if a new one connects (e.g. plugin reloaded)
             if (this.ws) {
