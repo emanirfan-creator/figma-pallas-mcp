@@ -161,10 +161,10 @@ function createVariableAlias({
     const semanticVar = existing
         ? existing
         : figma.variables.createVariable(
-            semanticPath,
-            semanticCol,
-            primitive.resolvedType
-        );
+              semanticPath,
+              semanticCol,
+              primitive.resolvedType
+          );
 
     const modeId = modeIdByName(semanticCol, mode != null ? mode : "default");
     // Always use createVariableAlias — never set a raw value
@@ -377,7 +377,7 @@ async function verifyComponentBindings({ componentSetId }) {
     const textProps = ["fontSize", "letterSpacing", "lineHeight"];
 
     function auditNode(n) {
-        const bv = n.boundVariables ?? {};
+        const bv = n.boundVariables ? n.boundVariables : {};
 
         if (n.type === "FRAME" || n.type === "COMPONENT") {
             for (const prop of [...colorProps, ...frameProps]) {
@@ -426,7 +426,7 @@ async function verifyComponentBindings({ componentSetId }) {
                     semanticVariablePath: guessedPath,
                 });
                 autoRetried = true;
-            } catch {
+            } catch (err) {
                 // leave as is — will show in final report
             }
         }
@@ -469,12 +469,17 @@ function setAutoLayout({
     if (!("layoutMode" in node))
         throw new Error(`Node ${nodeId} does not support auto layout`);
 
-    node.layoutMode = direction === "WRAP" ? "HORIZONTAL" : (direction ?? "HORIZONTAL");
-    node.itemSpacing = gap ?? 0;
-    node.paddingTop = paddingTop ?? 0;
-    node.paddingBottom = paddingBottom ?? 0;
-    node.paddingLeft = paddingLeft ?? 0;
-    node.paddingRight = paddingRight ?? 0;
+    node.layoutMode =
+        direction === "WRAP"
+            ? "HORIZONTAL"
+            : direction != null
+                ? direction
+                : "HORIZONTAL";
+    node.itemSpacing = gap != null ? gap : 0;
+    node.paddingTop = paddingTop != null ? paddingTop : 0;
+    node.paddingBottom = paddingBottom != null ? paddingBottom : 0;
+    node.paddingLeft = paddingLeft != null ? paddingLeft : 0;
+    node.paddingRight = paddingRight != null ? paddingRight : 0;
     node.counterAxisAlignItems = alignment === "CENTER" ? "CENTER" : "MIN";
     node.primaryAxisAlignItems = alignment === "SPACE_BETWEEN" ? "SPACE_BETWEEN" : "MIN";
     if (wrap && direction === "WRAP") node.layoutWrap = "WRAP";
@@ -483,7 +488,11 @@ function setAutoLayout({
 }
 
 function createComponentSetAction({ name, figmaSchema, parentId }) {
-    const components = (figmaSchema.variantCombinations ?? []).map((combo) => {
+    const variantCombinations =
+        figmaSchema && figmaSchema.variantCombinations
+            ? figmaSchema.variantCombinations
+            : [];
+    const components = variantCombinations.map((combo) => {
         const c = figma.createComponent();
         c.name = combo.variantKey;
         c.resize(200, 48);
@@ -521,7 +530,7 @@ function addComponentProperty({
 
     if (propertyType === "VARIANT") {
         node.addComponentProperty(propertyName, "VARIANT", String(defaultValue), {
-            variantOptions: options ?? [],
+            variantOptions: options != null ? options : [],
         });
     } else if (propertyType === "BOOLEAN") {
         node.addComponentProperty(

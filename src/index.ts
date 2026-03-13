@@ -38,6 +38,9 @@ import { readMap, writeMap, diffMap } from "./sync/map.js";
 import { syncPush } from "./sync/push.js";
 import { syncPull } from "./sync/pull.js";
 
+// Ensure the plugin WebSocket bridge starts on boot
+import { getPluginClient } from "./figma/client.js";
+
 // ---------------------------------------------------------------------------
 // Server setup
 // ---------------------------------------------------------------------------
@@ -784,6 +787,10 @@ server.tool(
 // ---------------------------------------------------------------------------
 
 async function main() {
+    // Start local WebSocket server so the companion Figma plugin can connect
+    // even before any tool invokes a write operation.
+    getPluginClient();
+
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("Pallas MCP server listening on stdio");
