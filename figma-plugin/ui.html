@@ -84,7 +84,7 @@
     <div class="dot" id="dot"></div>
     <span id="status-label">Waiting for connection…</span>
   </div>
-  <div class="meta" style="margin-top: 2px;">
+  <div class="meta" style="margin-top: 6px;">
     Queue: <span id="queue-depth">0</span>
   </div>
   <div class="meta" style="margin-top: 10px; display: flex; gap: 4px;">
@@ -159,7 +159,7 @@
           // Forward to plugin sandbox
           parent.postMessage({ pluginMessage: { type: "ws_message", ...data } }, "*");
           setStatus("running", 0, data.action != null ? data.action : "unknown");
-        } catch { }
+        } catch (err) { }
       });
 
       server.addEventListener("close", () => {
@@ -178,7 +178,7 @@
 
     // Listen for replies from the plugin code sandbox
     window.addEventListener("message", (evt) => {
-      const msg = evt.data && evt.data.pluginMessage;
+      const msg = evt.data && evt.data.pluginMessage ? evt.data.pluginMessage : null;
       if (!msg || msg.type !== "ws_reply") return;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -193,7 +193,7 @@
 
     // Listen for status updates from the plugin code
     window.addEventListener("message", (evt) => {
-      const msg = evt.data && evt.data.pluginMessage;
+      const msg = evt.data && evt.data.pluginMessage ? evt.data.pluginMessage : null;
       if (!msg || msg.type !== "status") return;
       setStatus(msg.status, msg.queueDepth, msg.lastAction);
     });
