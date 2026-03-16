@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        background: #f0f0f0;
+      }
+      #status {
+        padding: 8px;
+        border-radius: 4px;
+        background: #fff;
+        font-weight: bold;
+        color: #666;
+      }
+      .connected { color: #00b894 !important; }
+      .error { color: #d63031 !important; }
+      #log {
+        margin-top: 10px;
+        font-size: 11px;
+        height: 200px;
+        overflow-y: auto;
+        background: #fff;
+        padding: 5px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Pallas MCP Sync</h2>
+    <div id="status">Disconnected</div>
+    <div id="log"></div>
+    <script>
+      const statusEl = document.getElementById('status');
+      const logEl = document.getElementById('log');
+      let ws;
+
+      function log(msg) {
+        const div = document.createElement('div');
+        div.textContent = `> ${msg}`;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function connect() {
+        log('Connecting to ws://localhost:3055...');
+        ws = new WebSocket('ws://localhost:3055');
+
+        ws.onopen = () => {
+          statusEl.textContent = 'Connected';
+          statusEl.className = 'connected';
+          log('Connected to MCP server');
+          parent.postMessage({ pluginMessage: { type: 'ws-status', status: 'connected' } }, '*');
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            log(`Received action: ${data.action}`);
+            // Pass the action to the plugin code
+            parent.postMessage({ pluginMessage: { type: 'action', request: data } }, '*');
+          } catch (e) {
+            log(`Error parsing message: ${e.message}`);
+          }
+        };
+
+        ws.onclose = () => {
+          statusEl.textContent = 'Disconnected';
+          statusEl.className = '';
+          log('Disconnected. Retrying in 3s...');
+          parent.postMessage({ pluginMessage: { type: 'ws-status', status: 'disconnected' } }, '*');
+          setTimeout(connect, 3000);
+        };
+
+        ws.onerror = (error) => {
+          statusEl.textContent = 'Error';
+          statusEl.className = 'error';
+          log('WebSocket error');
+        };
+      }
+
+      // Listen for results from the plugin code to send back to the server
+      window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        if (msg && msg.type === 'action-result') {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(msg.result));
+            log(`Sent result: ${msg.result.success ? 'success' : 'error'}`);
+          } else {
+            log('Cannot send result, websocket not open');
+          }
+        }
+      };
+
+      connect();
+    </script>
+  </body>
+</html>

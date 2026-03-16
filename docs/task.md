@@ -1,0 +1,39 @@
+# Task Breakdown for Pallas MCP
+
+- [x] Project Setup & Core Configuration
+  - [x] Initialize `package.json` and `tsconfig.json` for MCP server
+  - [x] Set up empty files for project structure
+- [x] Figma Companion Plugin
+  - [x] Setup `manifest.json`, Webpack/Esbuild bundler
+  - [x] Write `ui.html` for UI/WebSocket host
+  - [x] Implement `code.ts` handling Figma operations: variables, aliasing, components, properties, bounding variables, Auto Layout
+- [x] Figma MCP Client (`src/figma/*`)
+  - [x] Implement `client.ts` WebSocket server to connect with plugin
+  - [x] Implement wrapper functions in `variables.ts`, `components.ts`, `variants.ts`, `autolayout.ts`, `tokens.ts`
+- [x] Panda CSS Tools (`src/panda/*`)
+  - [x] Implement `tokens.ts` (Reader/Writer)
+  - [x] Implement `recipes.ts` (Reader/Writer)
+  - [x] Implement `parser.ts` (Convert to Figma schemas)
+- [x] Sync Implementation (`src/sync/*`)
+  - [x] Implement `map.ts` functionality
+  - [x] Implement `sync_push` flow (`push.ts`)
+  - [x] Implement `sync_pull` flow (`pull.ts`)
+- [x] Main MCP Server (`src/index.ts`)
+  - [x] Boot @modelcontextprotocol/sdk server
+  - [x] Expose all `figma_*`, `panda_*`, `sync_*`, `map_*` tools
+  - [x] Link tool handlers to business logic
+- [x] Documentation (`README.md`)
+  - [x] Detail installation, running the plugin locally, establishing MCP connections, structure and tools.
+- [x] Layout and Automated QA Rules
+  - [x] Enforce Rule 5 mapping layout in `figma_code_mapping_rules.md`
+  - [x] Integrate Component Sets into `Button` and `Button Testing` pages
+  - [x] Render Light Mode and Dark Mode environments on testing page
+- [x] Advanced Architecture & Token Modes (Rules 6-9)
+  - [x] Implement Rule 6: Idempotent Component Upserts
+  - [x] Implement Rule 7: Horizontal Unstacking of UI Testing Frames
+  - [x] Implement Rule 8: Global Icons Page with Grid Formatting
+  - [x] Implement Rule 9: Explicit Token Mode Selection for Global Testing Pages
+- [x] Input Component Integration
+  - [x] Generalize Mapping Rules for all components (Input focus)
+  - [x] Implement `sync-input.ts` with slotted architecture (Icon-Text-Icon)
+  - [x] Verify Global Testing Page idempotency with Input QA frames

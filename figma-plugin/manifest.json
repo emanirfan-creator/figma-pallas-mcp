@@ -1,0 +1,12 @@
+{
+  "name": "Pallas MCP Companion",
+  "id": "123456789",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:3055", "ws://localhost:3055"],
+    "reasoning": "Needs to connect to the local Pallas MCP server via WebSocket"
+  }
+}

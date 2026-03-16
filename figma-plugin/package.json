@@ -1,0 +1,13 @@
+{
+  "name": "pallas-mcp-plugin",
+  "version": "1.0.0",
+  "description": "Figma plugin for Pallas MCP",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json -w"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.88.0",
+    "typescript": "^5.4.5"
+  }
+}
