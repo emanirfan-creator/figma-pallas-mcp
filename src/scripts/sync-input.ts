@@ -336,7 +336,7 @@ async function main() {
 
     process.exit(0);
   } catch (err) {
-    console.error('Failed to sync Button:', err);
+    console.error('Failed to sync Input:', err);
   }
 }
 

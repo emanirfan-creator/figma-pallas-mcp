@@ -63,6 +63,7 @@ async function main() {
     await createPrim('spacing', 'padding.block.md', 'FLOAT', 8);
     await createPrim('spacing', 'padding.block.lg', 'FLOAT', 12);
     await createPrim('spacing', 'zero', 'FLOAT', 0);
+    await createPrim('radii', 'zero', 'FLOAT', 0);
 
     const colors = {
       blue500: '#1677ff', blue400: '#4096ff', blue600: '#0958d9',

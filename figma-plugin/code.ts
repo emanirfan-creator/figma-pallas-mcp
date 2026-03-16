@@ -69,14 +69,16 @@ async function handleAction(action: string, payload: any): Promise<any> {
 
     case 'setBoundVariable': {
       const { nodeId, property, variableId } = payload;
+      if (!variableId) throw new Error(`Cannot bind property ${property} to undefined variableId`);
       const node = await figma.getNodeByIdAsync(nodeId);
+      const variable = await figma.variables.getVariableByIdAsync(variableId);
+      
       if (!node) throw new Error(`Node ${nodeId} not found`);
-      const v = await figma.variables.getVariableByIdAsync(variableId);
-      if (!v) throw new Error(`Variable ${variableId} not found`);
+      if (!variable) throw new Error(`Variable ${variableId} not found`);
 
       if (property === 'fills' || property === 'strokes') {
         const solidPaint: SolidPaint = { type: 'SOLID', color: { r: 1, g: 1, b: 1 } };
-        const boundPaint = figma.variables.setBoundVariableForPaint(solidPaint, 'color', v);
+        const boundPaint = figma.variables.setBoundVariableForPaint(solidPaint, 'color', variable);
         
         if (node.type === 'INSTANCE') {
           const traverse = (n: SceneNode) => {
@@ -95,10 +97,10 @@ async function handleAction(action: string, payload: any): Promise<any> {
       } else if (property === 'fontSize') {
         if (node.type === 'TEXT') {
           await figma.loadFontAsync(node.fontName as FontName);
-          node.setBoundVariable('fontSize', v.id);
+          node.setBoundVariable('fontSize', variable.id);
         }
       } else if ('setBoundVariable' in node) {
-        (node as any).setBoundVariable(property, v.id);
+        (node as any).setBoundVariable(property, variable.id);
       }
       return { success: true };
     }
@@ -288,8 +290,26 @@ async function handleAction(action: string, payload: any): Promise<any> {
       const { setId, propertyName, type, defaultValue } = payload;
       const set = await figma.getNodeByIdAsync(setId);
       if (!set || set.type !== 'COMPONENT_SET') throw new Error(`ComponentSet ${setId} not found`);
-      const propName = set.addComponentProperty(propertyName, type, defaultValue);
-      return { propertyName: propName };
+      
+      // Check for existing property to avoid throwing
+      const existing = Object.entries(set.componentPropertyDefinitions).find(([name, def]) => {
+         // Figma strips hashes when checking names via API, but we'll be careful
+         return (name === propertyName || name.split('#')[0] === propertyName) && def.type === type;
+      });
+      
+      if (existing) {
+        return { propertyName: existing[0] };
+      }
+
+      try {
+        const propName = set.addComponentProperty(propertyName, type, defaultValue);
+        return { propertyName: propName };
+      } catch (e: any) {
+        // Fallback: search one more time by name if add failed
+        const secondTry = Object.keys(set.componentPropertyDefinitions).find(n => n.split('#')[0] === propertyName);
+        if (secondTry) return { propertyName: secondTry };
+        throw e;
+      }
     }
 
     case 'setAutoLayout': {
