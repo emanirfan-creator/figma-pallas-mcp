@@ -371,7 +371,9 @@ async function handleAction(action: string, payload: any): Promise<any> {
 
     case 'createSvgComponent': {
       const { name, svg } = payload;
-      let comp = figma.currentPage.children.find(c => c.name === name && c.type === 'COMPONENT') as ComponentNode;
+      // Search entire document for a singleton named exactly 'name'
+      let comp = figma.root.findAll(c => c.name === name && c.type === 'COMPONENT')[0] as ComponentNode;
+      
       if (comp) {
         // Clear existing children
         for (const child of comp.children) child.remove();
@@ -410,6 +412,44 @@ async function handleAction(action: string, payload: any): Promise<any> {
         }
       }
       return { id: inst.id };
+    }
+
+    case 'deduplicateIcons': {
+      console.log('Running Global Icon Deduplication Audit...');
+      const iconComponents = figma.root.findAll(n => n.type === 'COMPONENT' && n.name.startsWith('icon=')) as ComponentNode[];
+      const groups: Record<string, ComponentNode[]> = {};
+      
+      for (const comp of iconComponents) {
+        if (!groups[comp.name]) groups[comp.name] = [];
+        groups[comp.name].push(comp);
+      }
+
+      let iconSet = figma.root.findAll(n => n.type === 'COMPONENT_SET' && n.name === 'Icon')[0] as ComponentSetNode;
+      let rewiredCount = 0;
+      let deletedCount = 0;
+
+      for (const [name, comps] of Object.entries(groups)) {
+        if (comps.length <= 1) continue;
+
+        // Determine Authority: preference for child of 'Icon' set, or first created
+        let authority = comps.find(c => c.parent && c.parent.type === 'COMPONENT_SET' && c.parent.name === 'Icon');
+        if (!authority) authority = comps[0];
+
+        const nonAuthorities = comps.filter(c => c.id !== authority!.id);
+        
+        for (const na of nonAuthorities) {
+          // Find all instances of this non-authority across document
+          const instances = figma.root.findAll(n => n.type === 'INSTANCE' && n.mainComponent?.id === na.id) as InstanceNode[];
+          for (const inst of instances) {
+            inst.mainComponent = authority!;
+            rewiredCount++;
+          }
+          na.remove();
+          deletedCount++;
+        }
+      }
+
+      return { rewiredCount, deletedCount };
     }
 
     default:

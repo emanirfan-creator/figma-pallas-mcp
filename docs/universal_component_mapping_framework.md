@@ -151,16 +151,17 @@ The `64px` gap between frames provides visual breathing room on the canvas. Each
 
 ---
 
-### Rule 8 — The Global Icon Registry Rule
-> *"All icon components live on a single `Icons` page, arranged in the standard grid."*
+### Rule 8 — The Global Icon Registry Rule (Singleton Management)
+> *"All icon components live on a single `Icons` page as unique singletons. Never replicate, only reference."*
 
 When any sync script requires an SVG/icon component, it must:
-1. Check if an `Icons` page exists. If not, create it.
-2. Check if the icon component (e.g., `icon=Star`) already exists on the `Icons` page. If yes, update its SVG content (idempotent upsert). If no, create it.
-3. If multiple icons exist, arrange them into the standard 4-column grid (Rule 5 math) on the `Icons` page.
-4. The resulting icon collection must form a single **Component Set** named `Icon`.
+1. **Check Page Existence:** If the `Icons` page does not exist, create it.
+2. **Singleton Lookup:** Search the entire document for a component named `icon=X`. If found, use its `nodeId`. 
+3. **Idempotent Upsert:** If found, update its SVG vector paths to match the incoming definition (ensures modifications propagate). If not found, create a new icon component.
+4. **Component Set Encapsulation:** All icon singletons must be children of a single `Component Set` named `Icon`.
+5. **Spatial Determinism:** Arrange icons using the standard grid layout (Rule 5).
 
-Icon instances used inside other components (e.g., Button, Input) reference this global registry as their source of truth.
+Icon instances used inside other components (e.g., Button, Input) must reference these global singletons as their `mainComponent`.
 
 ---
 
@@ -168,6 +169,19 @@ Icon instances used inside other components (e.g., Button, Input) reference this
 > *"A second sync run must produce the exact same Figma state as the first. No duplicates. No orphans."*
 
 See **Part III: The Idempotency Clause** for full specification.
+
+---
+
+### Rule 10 — The Icon Deduplication Audit
+> *"Redundant icons are a violation of the design system. The sync script is a corrective auditor."*
+
+The sync script must perform a **Document-wide Icon Audit** before execution:
+1. **Detection:** Identify any component nodes with the `icon=` prefix that share identical geometry or source names outside the official `Icon` Component Set.
+2. **Consolidation:** If duplicates are found:
+   - Identify the "Authoritative Singleton" (the one inside the `Icon` Component Set).
+   - Update all instances on all pages to point their `mainComponent` to this singleton.
+   - **Delete** the redundant duplicates.
+3. **Modification Sensitivity:** If an icon is modified in code, the auditor ensures the single existing component in Figma receives the update, rather than spawning a "Modified_Icon" copy.
 
 ---
 

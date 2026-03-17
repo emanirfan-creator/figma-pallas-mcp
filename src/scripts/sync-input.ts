@@ -131,6 +131,10 @@ async function main() {
     await createPrim('typography', 'fontSize.sm', 'FLOAT', 14);
     await createPrim('typography', 'fontSize.md', 'FLOAT', 16);
 
+    console.log('Running Icon Deduplication Audit...');
+    const dedupRes = await figmaClient.requestFigmaAction('deduplicateIcons', {});
+    console.log(`Deduplication Audit Results: ${dedupRes.deletedCount} duplicates removed, ${dedupRes.rewiredCount} instances rewired.`);
+
     console.log('Generating Icon component from lucide-static...');
     const { id: iconsPageId } = await figmaClient.requestFigmaAction('createPage', { name: 'Icons' });
     const svgPath = path.resolve(process.cwd(), 'node_modules/lucide-static/icons/star.svg');
