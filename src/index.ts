@@ -4,7 +4,7 @@ import { z } from "zod";
 
 // Figma imports
 import { createVariable, setVariableValue, createVariableAlias, setBoundVariable } from './figma/variables.js';
-import { createComponent, createInstance, createComponentSet, addComponentProperty } from './figma/components.js';
+import { createComponent, createInstance, createComponentSet, addComponentProperty, deduplicateIcons, createSvgComponent } from './figma/components.js';
 import { addAutoLayout } from './figma/autolayout.js';
 import { bindAllVariantTokens } from './figma/variants.js';
 import { ensureTokenStructure, resolveRecipeTokenMap, verifyComponentBindings } from './figma/tokens.js';
@@ -146,6 +146,24 @@ server.tool("figma_add_component_property",
   { setId: z.string(), propertyName: z.string(), type: z.enum(["VARIANT", "BOOLEAN", "TEXT", "INSTANCE_SWAP"]), defaultValue: z.any() },
   async (args) => {
     const res = await addComponentProperty(args.setId, args.propertyName, args.type, args.defaultValue);
+    return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
+  }
+);
+
+server.tool("figma_audit_icons",
+  "Scans document for redundant icons, consolidates instances, and deletes duplicates (Rule 10)",
+  {},
+  async () => {
+    const res = await deduplicateIcons();
+    return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
+  }
+);
+
+server.tool("figma_create_svg_component",
+  "Creates or updates a singleton SVG component (search document-wide)",
+  { name: z.string(), svg: z.string() },
+  async (args) => {
+    const res = await createSvgComponent(args.name, args.svg);
     return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
   }
 );

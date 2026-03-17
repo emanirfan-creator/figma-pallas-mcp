@@ -15,3 +15,11 @@ export async function createComponentSet(name: string, componentIds: string[]): 
 export async function addComponentProperty(setId: string, propertyName: string, type: 'VARIANT' | 'BOOLEAN' | 'TEXT' | 'INSTANCE_SWAP', defaultValue: any): Promise<{ propertyName: string }> {
   return figmaClient.requestFigmaAction('addComponentProperty', { setId, propertyName, type, defaultValue });
 }
+
+export async function deduplicateIcons(): Promise<{ rewiredCount: number, deletedCount: number }> {
+  return figmaClient.requestFigmaAction('deduplicateIcons', {});
+}
+
+export async function createSvgComponent(name: string, svg: string): Promise<{ id: string }> {
+  return figmaClient.requestFigmaAction('createSvgComponent', { name, svg });
+}
