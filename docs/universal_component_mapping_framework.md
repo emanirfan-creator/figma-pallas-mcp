@@ -196,6 +196,15 @@ Every true-up of a composite component (e.g., Button, Input) must ensure its int
 
 ---
 
+### Rule 12 — Recursive Universal Adoption
+> *"The Icon Registry is a closed-loop system. No component, whether present or future, is permitted to define its own icon vectors."*
+
+1. **Future-Proofing:** Any new component sync added to the framework (e.g., Select, Tooltip, Alert) MUST import its icons by querying the Registry using Rule 10 first.
+2. **Backward Compatibility Audit:** Every automated sync should perform a sanity check on existing components to see if they contain hardcoded vector paths. If found, they must be converted to singleton instances.
+3. **Registry as Source of Truth:** If a designer modifies an icon in Figma, and the sync script carries a different SVG payload, the Code-First principle overrides the manual change. Content modifications must happen at the Registry level.
+
+---
+
 ## Part II: The Translation Matrix
 
 This table is the canonical reference for how designer intent maps to compiler execution logic. Every sync script and code generator must implement this mapping.
