@@ -47,19 +47,23 @@ async function main() {
     }
 
     console.log('Creating Primitive Variables...');
+    await createPrim('radii', 'sm', 'FLOAT', 4);
     await createPrim('radii', 'md', 'FLOAT', 6);
+    await createPrim('radii', 'lg', 'FLOAT', 8);
+    await createPrim('radii', 'xl', 'FLOAT', 12);
+    await createPrim('radii', '2xl', 'FLOAT', 16);
     await createPrim('radii', '4xl', 'FLOAT', 32);
     await createPrim('radii', 'full', 'FLOAT', 9999);
     
-    await createPrim('sizes', 'controlHeight.sm', 'FLOAT', 32);
-    await createPrim('sizes', 'controlHeight.md', 'FLOAT', 40);
-    await createPrim('sizes', 'controlHeight.lg', 'FLOAT', 48);
-    await createPrim('sizes', 'icon', 'FLOAT', 40);
+    await createPrim('sizes', 'controlHeight.sm', 'FLOAT', 28);
+    await createPrim('sizes', 'controlHeight.md', 'FLOAT', 32);
+    await createPrim('sizes', 'controlHeight.lg', 'FLOAT', 40);
+    await createPrim('sizes', 'icon', 'FLOAT', 32); // md icon
 
-    await createPrim('spacing', 'padding.inline.sm', 'FLOAT', 12);
-    await createPrim('spacing', 'padding.inline.md', 'FLOAT', 16);
-    await createPrim('spacing', 'padding.inline.lg', 'FLOAT', 24);
-    await createPrim('spacing', 'padding.block.sm', 'FLOAT', 6);
+    await createPrim('spacing', 'padding.inline.sm', 'FLOAT', 8);
+    await createPrim('spacing', 'padding.inline.md', 'FLOAT', 12);
+    await createPrim('spacing', 'padding.inline.lg', 'FLOAT', 16);
+    await createPrim('spacing', 'padding.block.sm', 'FLOAT', 4);
     await createPrim('spacing', 'padding.block.md', 'FLOAT', 8);
     await createPrim('spacing', 'padding.block.lg', 'FLOAT', 12);
     await createPrim('spacing', 'zero', 'FLOAT', 0);
@@ -68,8 +72,22 @@ async function main() {
     const colors = {
       blue500: '#1677ff', blue400: '#4096ff', blue600: '#0958d9',
       blue100: '#e6f4ff', blue200: '#bae0ff', blue300: '#91caff',
-      gray100: '#f5f5f5', gray200: '#d9d9d9', gray700: '#434343', gray800: '#1f1f1f',
       white: '#ffffff', transparent: '#000000'
+    };
+
+    // Neutrals using Pallas UI alpha math
+    // Light Mode: Black (#000) base
+    // Dark Mode Mode Mode handles elsewhere, but we'll use base values here
+    const neutralBase = '#000000';
+    const alpha = {
+      text: 0.88,
+      textSecondary: 0.65,
+      textTertiary: 0.45,
+      textQuaternary: 0.25,
+      fill: 0.15,
+      fillSecondary: 0.06,
+      border: 0.15,
+      borderSecondary: 0.06
     };
 
     await createPrim('colors', 'blue.500', 'COLOR', hexToRgba(colors.blue500));
@@ -79,14 +97,10 @@ async function main() {
     await createPrim('colors', 'blue.200', 'COLOR', hexToRgba(colors.blue200));
     await createPrim('colors', 'blue.300', 'COLOR', hexToRgba(colors.blue300));
     await createPrim('colors', 'white', 'COLOR', hexToRgba(colors.white));
-    await createPrim('colors', 'gray.100', 'COLOR', hexToRgba(colors.gray100));
-    await createPrim('colors', 'gray.200', 'COLOR', hexToRgba(colors.gray200));
-    await createPrim('colors', 'gray.700', 'COLOR', hexToRgba(colors.gray700));
-    await createPrim('colors', 'gray.800', 'COLOR', hexToRgba(colors.gray800));
     await createPrim('colors', 'transparent', 'COLOR', hexToRgba(colors.transparent, 0));
 
     console.log('Creating Semantic Variables...');
-    await createSem('colors', 'primary.default', primitiveVars['colors.blue.500']);
+    await createSem('colors', 'primary.DEFAULT', primitiveVars['colors.blue.500']);
     await createSem('colors', 'primary.hover', primitiveVars['colors.blue.400']);
     await createSem('colors', 'primary.active', primitiveVars['colors.blue.600']);
     await createSem('colors', 'primary.borderHover', primitiveVars['colors.blue.400']);
@@ -97,11 +111,19 @@ async function main() {
     await createSem('colors', 'primary.textHover', primitiveVars['colors.blue.400']);
     await createSem('colors', 'primary.bgActive', primitiveVars['colors.blue.300']);
     await createSem('colors', 'primary.textActive', primitiveVars['colors.blue.600']);
+
     await createSem('colors', 'bgSolid.text', primitiveVars['colors.white']);
-    await createSem('colors', 'border.default', primitiveVars['colors.gray.200']);
-    await createSem('colors', 'text.default', primitiveVars['colors.gray.800']);
-    await createSem('colors', 'text.hover', primitiveVars['colors.gray.700']);
-    await createSem('colors', 'fill.secondary', primitiveVars['colors.gray.100']);
+    
+    // Alpha calculated neutrals
+    await createPrim('colors', 'neutral.text', 'COLOR', hexToRgba(neutralBase, alpha.text));
+    await createPrim('colors', 'neutral.textSecondary', 'COLOR', hexToRgba(neutralBase, alpha.textSecondary));
+    await createPrim('colors', 'neutral.border', 'COLOR', hexToRgba(neutralBase, alpha.border));
+    await createPrim('colors', 'neutral.fillSecondary', 'COLOR', hexToRgba(neutralBase, alpha.fillSecondary));
+
+    await createSem('colors', 'text.DEFAULT', primitiveVars['colors.neutral.text']);
+    await createSem('colors', 'text.secondary', primitiveVars['colors.neutral.textSecondary']);
+    await createSem('colors', 'border.DEFAULT', primitiveVars['colors.neutral.border']);
+    await createSem('colors', 'fill.secondary', primitiveVars['colors.neutral.fillSecondary']);
 
     await createPrim('typography', 'fontSize.sm', 'FLOAT', 14);
     await createPrim('typography', 'fontSize.md', 'FLOAT', 16);
@@ -157,7 +179,7 @@ async function main() {
         await figmaClient.requestFigmaAction('setAutoLayout', {
           nodeId: compId,
           direction: 'HORIZONTAL',
-          gap: 8,
+          gap: 8, // {spacing.2}
           alignment: 'CENTER',
           counterAlignment: 'CENTER'
         });
@@ -182,18 +204,18 @@ async function main() {
 
         switch (variant) {
           case 'primary':
-            bgSemId = semanticVars['colors.primary.default'];
+            bgSemId = semanticVars['colors.primary.DEFAULT'];
             textSemId = semanticVars['colors.bgSolid.text'];
             break;
           case 'outlined':
             bgSemId = primitiveVars['colors.transparent'];
-            textSemId = semanticVars['colors.text.default'];
-            borderSemId = semanticVars['colors.border.default'];
+            textSemId = semanticVars['colors.text.DEFAULT'];
+            borderSemId = semanticVars['colors.border.DEFAULT'];
             break;
           case 'dashed':
             bgSemId = primitiveVars['colors.transparent'];
-            textSemId = semanticVars['colors.text.default'];
-            borderSemId = semanticVars['colors.border.default'];
+            textSemId = semanticVars['colors.text.DEFAULT'];
+            borderSemId = semanticVars['colors.border.DEFAULT'];
             break;
           case 'default':
             bgSemId = semanticVars['colors.primary.bg'];
@@ -201,11 +223,11 @@ async function main() {
             break;
           case 'text':
             bgSemId = primitiveVars['colors.transparent'];
-            textSemId = semanticVars['colors.text.default'];
+            textSemId = semanticVars['colors.text.DEFAULT'];
             break;
           case 'link':
             bgSemId = primitiveVars['colors.transparent'];
-            textSemId = semanticVars['colors.primary.default'];
+            textSemId = semanticVars['colors.primary.DEFAULT'];
             break;
         }
 
