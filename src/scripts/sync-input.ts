@@ -239,23 +239,25 @@ async function main() {
     }
 
     console.log('Applying Component Properties...');
-    let valueRes, leftIconSwap, rightIconSwap, showLeftIconRes, showRightIconRes, showTextRes;
-    try {
-      valueRes = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'TEXT', name: 'Value', defaultValue: 'Placeholder...' });
-      leftIconSwap = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'INSTANCE_SWAP', name: 'Left Icon', defaultValue: '' });
-      rightIconSwap = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'INSTANCE_SWAP', name: 'Right Icon', defaultValue: '' });
-      showLeftIconRes = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'BOOLEAN', name: 'Show Left Icon', defaultValue: 'false' });
-      showRightIconRes = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'BOOLEAN', name: 'Show Right Icon', defaultValue: 'false' });
-      showTextRes = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'BOOLEAN', name: 'Show Text', defaultValue: 'true' });
-    } catch(e: any) {
-      console.log('Component Set properties likely already exist, bypassing definition.', e.message);
-      valueRes = { propertyName: 'Value' };
-      leftIconSwap = { propertyName: 'Left Icon' };
-      rightIconSwap = { propertyName: 'Right Icon' };
-      showLeftIconRes = { propertyName: 'Show Left Icon' };
-      showRightIconRes = { propertyName: 'Show Right Icon' };
-      showTextRes = { propertyName: 'Show Text' };
-    }
+
+    // Always add/fetch properties using the idempotent addComponentProperty action,
+    // which returns the real hashed name (e.g. "Show Left Icon#abc12"). We then
+    // use those exact names for componentPropertyReferences assignment.
+    const valueRes        = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'TEXT',          propertyName: 'Value',           defaultValue: 'Placeholder...' });
+    const leftIconSwap    = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'INSTANCE_SWAP', propertyName: 'Left Icon',  defaultValue: baseIconCompId });
+    const rightIconSwap   = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'INSTANCE_SWAP', propertyName: 'Right Icon', defaultValue: baseIconCompId });
+    const showLeftIconRes = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'BOOLEAN',       propertyName: 'Show Left Icon',  defaultValue: 'false' });
+    const showRightIconRes= await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'BOOLEAN',       propertyName: 'Show Right Icon', defaultValue: 'false' });
+    const showTextRes     = await figmaClient.requestFigmaAction('addComponentProperty', { setId, type: 'BOOLEAN',       propertyName: 'Show Text',       defaultValue: 'true' });
+
+    console.log('Resolved property names:', {
+      value: valueRes.propertyName,
+      leftIconSwap: leftIconSwap.propertyName,
+      rightIconSwap: rightIconSwap.propertyName,
+      showLeftIcon: showLeftIconRes.propertyName,
+      showRightIcon: showRightIconRes.propertyName,
+      showText: showTextRes.propertyName
+    });
 
     for (const textId of allTextIds) {
       try {

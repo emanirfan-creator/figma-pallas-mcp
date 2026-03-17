@@ -293,23 +293,44 @@ async function handleAction(action: string, payload: any): Promise<any> {
       
       // Check for existing property to avoid throwing
       const existing = Object.entries(set.componentPropertyDefinitions).find(([name, def]) => {
-         // Figma strips hashes when checking names via API, but we'll be careful
          return (name === propertyName || name.split('#')[0] === propertyName) && def.type === type;
       });
-      
       if (existing) {
         return { propertyName: existing[0] };
       }
 
+      // Coerce defaultValue to the correct JS type Figma expects
+      let coercedDefault: any;
+      if (type === 'BOOLEAN') {
+        coercedDefault = defaultValue === true || defaultValue === 'true';
+      } else if (type === 'INSTANCE_SWAP') {
+        // INSTANCE_SWAP requires a component ID string or null; empty string causes error
+        coercedDefault = (defaultValue && defaultValue !== '') ? defaultValue : null;
+      } else {
+        coercedDefault = defaultValue ?? '';
+      }
+
       try {
-        const propName = set.addComponentProperty(propertyName, type, defaultValue);
+        const propName = set.addComponentProperty(propertyName, type, coercedDefault);
         return { propertyName: propName };
       } catch (e: any) {
-        // Fallback: search one more time by name if add failed
         const secondTry = Object.keys(set.componentPropertyDefinitions).find(n => n.split('#')[0] === propertyName);
         if (secondTry) return { propertyName: secondTry };
         throw e;
       }
+    }
+
+    case 'getComponentProperties': {
+      const { setId } = payload;
+      const set = await figma.getNodeByIdAsync(setId);
+      if (!set || set.type !== 'COMPONENT_SET') throw new Error(`ComponentSet ${setId} not found`);
+      // Return map of baseName -> hashedName for each property
+      const props: Record<string, string> = {};
+      for (const [hashedName] of Object.entries(set.componentPropertyDefinitions)) {
+        const baseName = hashedName.split('#')[0];
+        props[baseName] = hashedName;
+      }
+      return { properties: props };
     }
 
     case 'setAutoLayout': {
