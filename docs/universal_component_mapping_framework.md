@@ -185,6 +185,17 @@ The sync script must perform a **Document-wide Icon Audit** before execution:
 
 ---
 
+### Rule 11 — The Component Slot Integrity Rule
+> *"Icon instances inside complex components (slots) must be verified for singleton adherence during every sync."*
+
+Every true-up of a composite component (e.g., Button, Input) must ensure its internal icon instances are bound to the authoritative singleton from Rule 8/10.
+
+1. **Strict Re-instancing:** If a composite component's variants are refreshed, they must consume the singleton instance directly from the Icon Registry.
+2. **Instance Propagation:** In cases where a singleton is merged or deleted (during Rule 10 audit), any instance of the deleted component *found inside another component's variants* must be re-homed to the survivor before the duplicate is purged.
+3. **Visual In-Place Updates:** Because Figma instances are live, modifying the singleton icon's vector data is the only sanctioned way to update icons across the system. Replacing an instance with a new component should be avoided unless the icon identity itself has changed (e.g., swapping `star` for `check`).
+
+---
+
 ## Part II: The Translation Matrix
 
 This table is the canonical reference for how designer intent maps to compiler execution logic. Every sync script and code generator must implement this mapping.
